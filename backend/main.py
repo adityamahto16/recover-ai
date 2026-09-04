@@ -52,8 +52,15 @@ def analyze_payment_endpoint(payment: Payment):
     analysis = analyze_payment(payment)
 
     analysis_id = save_analysis(
-        payment,
-        analysis,
+        payment.customer,
+        payment.amount,
+        payment.status,
+        payment.reason,
+        payment.previous_successful_payments,
+        payment.previous_failed_attempts,
+        analysis["recovery_score"],
+        analysis["action"],
+        analysis["reason"],
     )
 
     return {
@@ -76,7 +83,6 @@ def get_analysis_endpoint(
 ):
 
     if analysis_id <= 0:
-
         raise HTTPException(
             status_code=400,
             detail="analysis_id must be greater than 0.",
@@ -87,7 +93,6 @@ def get_analysis_endpoint(
     )
 
     if analysis is None:
-
         raise HTTPException(
             status_code=404,
             detail="Analysis not found.",
@@ -112,7 +117,6 @@ def execute_recovery_action(
     # --------------------------------------------------------
 
     if analysis_id <= 0:
-
         raise HTTPException(
             status_code=400,
             detail="analysis_id must be greater than 0.",
@@ -132,7 +136,6 @@ def execute_recovery_action(
     }
 
     if action not in allowed_actions:
-
         raise HTTPException(
             status_code=400,
             detail=f"Unsupported recovery action: {action}",
@@ -148,7 +151,6 @@ def execute_recovery_action(
     )
 
     if analysis is None:
-
         raise HTTPException(
             status_code=404,
             detail="Analysis not found.",
@@ -222,10 +224,13 @@ def execute_recovery_action(
 
     save_transaction(
         analysis_id=analysis_id,
+        customer=analysis["customer"],
+        amount=analysis["amount"],
+        status=analysis["status"],
+        reason=analysis["reason"],
+        recovery_score=analysis["recovery_score"],
         action=action,
-        action_status=action_result.get(
-            "status"
-        ),
+        action_status=action_result.get("status"),
         payment_recovered=payment_recovered,
     )
 

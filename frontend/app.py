@@ -17,7 +17,7 @@ st.set_page_config(
 # CONFIG
 # ============================================================
 
-API_URL = "http://127.0.0.1:8003"
+API_URL = "http://127.0.0.1:8000"
 
 
 # ============================================================
@@ -123,10 +123,33 @@ transactions = history_data.get(
     [],
 )
 
-analyzed_payments = history_data.get(
-    "analyzed_payments",
-    0,
+
+# ============================================================
+# ANALYZED PAYMENT COUNT
+# ============================================================
+
+# Count each executed recovery case only once.
+executed_analysis_ids = {
+    transaction.get("analysis_id")
+    for transaction in transactions
+    if transaction.get("analysis_id") is not None
+}
+
+current_analysis_id = st.session_state.get(
+    "analysis_id"
 )
+
+analyzed_payments = len(
+    executed_analysis_ids
+)
+
+# Include an analysis that has been created but
+# has not yet had a recovery action executed.
+if (
+    current_analysis_id is not None
+    and current_analysis_id not in executed_analysis_ids
+):
+    analyzed_payments += 1
 
 
 # ============================================================
@@ -151,13 +174,29 @@ st.markdown(
 successful_recoveries = sum(
     1
     for transaction in transactions
-    if transaction.get("payment_recovered") == "Yes"
+    if transaction.get("payment_recovered") in (
+        True,
+        1,
+        "True",
+        "true",
+        "Yes",
+        "yes",
+        "1",
+    )
 )
 
 failed_recoveries = sum(
     1
     for transaction in transactions
-    if transaction.get("payment_recovered") == "No"
+    if transaction.get("payment_recovered") in (
+        False,
+        0,
+        "False",
+        "false",
+        "No",
+        "no",
+        "0",
+    )
 )
 
 if analyzed_payments > 0:
@@ -407,6 +446,8 @@ if analyze_button:
 
         st.session_state.action_result = None
 
+        st.rerun()
+
     except requests.RequestException as exc:
 
         st.error(
@@ -530,8 +571,6 @@ if st.session_state.result:
         unsafe_allow_html=True,
     )
 
-    # Check whether an action has already successfully
-    # recovered this payment.
     payment_already_recovered = (
         st.session_state.action_result is not None
         and st.session_state.action_result.get(
@@ -1019,8 +1058,6 @@ if st.session_state.action_result:
         "payment_recovered"
     )
 
-    # Show exactly ONE success message when payment
-    # was successfully recovered.
     if payment_recovered is True:
 
         st.success(
